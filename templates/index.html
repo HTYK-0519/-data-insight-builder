@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Data Insight Builder</title>
+    <!-- 순수 CSS 스타일시트 -->
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Chart.js CDN (차트 시각화 전용) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-container">
+            <div class="brand">
+                <h1>AI Data Insight Builder</h1>
+                <p class="subtitle">Pandas가 직접 계산하고, Gemini가 해석하는 신뢰 기반 교육용 데이터 분석기</p>
+            </div>
+            <div class="header-badges">
+                <span id="serverStatusBadge" class="badge badge-info">서버 상태 확인 중...</span>
+                <span id="modelBadge" class="badge badge-model">모델 로딩 중...</span>
+            </div>
+        </div>
+        <div class="notice-banner">
+            <span>ℹ️ <strong>안내:</strong> 업로드된 파일은 서버 디스크에 영구 저장되지 않으며, 서버 재시작 시 메모리에서 완전히 소멸됩니다.</span>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <!-- Step 1: CSV 업로드 및 데이터 진단 -->
+        <section class="step-card" id="sectionStep1">
+            <div class="step-header">
+                <span class="step-number">Step 1</span>
+                <h2>CSV 파일 업로드 및 데이터 상태 진단</h2>
+            </div>
+            <p class="step-desc">공식 기관(World Bank 등)에서 다운로드한 .csv 파일을 선택하세요. 다중 인코딩과 건너뛴 헤더 줄을 자동 감지합니다.</p>
+
+            <div class="upload-area" id="dropZone">
+                <input type="file" id="csvFileInput" accept=".csv" class="file-input">
+                <div class="upload-prompt">
+                    <span class="upload-icon">📁</span>
+                    <p id="selectedFileLabel">여기를 클릭하여 CSV 파일을 선택하거나 마우스로 끌어다 놓으세요.</p>
+                    <span class="upload-limit">최대 10MB (.csv 전용)</span>
+                </div>
+            </div>
+
+            <div class="action-row">
+                <button type="button" id="btnInspect" class="btn btn-primary" disabled>
+                    <span class="btn-text">데이터 진단 시작 (/inspect)</span>
+                </button>
+            </div>
+
+            <!-- 진단 결과 영역 (초기 숨김) -->
+            <div id="inspectResultContainer" class="result-box hidden">
+                <div class="result-header">
+                    <h3>📊 데이터 진단 결과 요약</h3>
+                    <span id="inspectBadge" class="badge badge-success">진단 완료</span>
+                </div>
+
+                <div class="info-grid">
+                    <div class="info-card">
+                        <span class="info-label">파일명 / 크기</span>
+                        <span class="info-value" id="resFilename">-</span>
+                    </div>
+                    <div class="info-card">
+                        <span class="info-label">인코딩 / 건너뛴 줄</span>
+                        <span class="info-value" id="resEncoding">-</span>
+                    </div>
+                    <div class="info-card">
+                        <span class="info-label">데이터 크기</span>
+                        <span class="info-value" id="resShape">-</span>
+                    </div>
+                    <div class="info-card">
+                        <span class="info-label">권장 기준연도</span>
+                        <span class="info-value highlight-value" id="resRecYear">-</span>
+                    </div>
+                </div>
+
+                <!-- 경고 및 주의사항 -->
+                <div id="warningsContainer" class="warnings-box hidden">
+                    <h4>⚠️ 데이터 주의사항 및 경고</h4>
+                    <ul id="warningsList"></ul>
+                </div>
+
+                <!-- 10행 미리보기 토글 -->
+                <details class="preview-details">
+                    <summary>📋 상위 10행 데이터 미리보기 (클릭하여 열기)</summary>
+                    <div class="table-responsive">
+                        <table id="previewTable" class="data-table">
+                            <thead><tr id="previewTableHead"></tr></thead>
+                            <tbody id="previewTableBody"></tbody>
+                        </table>
+                    </div>
+                </details>
+            </div>
+        </section>
+
+        <!-- Step 2: AI 분석 제안 -->
+        <section class="step-card disabled-card" id="sectionStep2">
+            <div class="step-header">
+                <span class="step-number">Step 2</span>
+                <h2>Gemini 맞춤형 분석 도구 제안 (/suggest)</h2>
+            </div>
+            <p class="step-desc">진단 요약을 바탕으로 Gemini가 12대 분석 도구 카탈로그 중 유효한 분석 3~5개를 추천합니다. (원본 데이터 미전송)</p>
+
+            <div class="action-row">
+                <button type="button" id="btnSuggest" class="btn btn-primary" disabled>
+                    <span class="btn-text">AI 분석 제안 받기</span>
+                </button>
+            </div>
+
+            <!-- 제안 카드 목록 -->
+            <div id="suggestionsContainer" class="suggestions-grid hidden"></div>
+        </section>
+
+        <!-- Step 3: Pandas 계산 실행 및 차트 시각화 -->
+        <section class="step-card disabled-card" id="sectionStep3">
+            <div class="step-header">
+                <span class="step-number">Step 3</span>
+                <h2>Pandas 수치 계산 및 시각화 (/run)</h2>
+            </div>
+            <p class="step-desc">선택된 도구로 Python(Pandas)이 실제 계산을 수행하고 차트 데이터를 생성합니다. (Gemini에게 계산을 시키지 않음)</p>
+
+            <div class="run-config-box" id="runConfigBox">
+                <div class="config-grid">
+                    <div class="form-group">
+                        <label for="selectTool">실행할 분석 도구</label>
+                        <select id="selectTool" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="inputRefPeriod">기준 시점 (reference_period)</label>
+                        <input type="text" id="inputRefPeriod" class="form-control" placeholder="예: 2020">
+                    </div>
+                    <div class="form-group">
+                        <label for="inputTopN">상/하위 개수 (N)</label>
+                        <input type="number" id="inputTopN" class="form-control" value="10" min="1" max="50">
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <label>
+                            <input type="checkbox" id="chkExcludeAggregates" checked>
+                            집계 행(World, OECD 등) 제외
+                        </label>
+                    </div>
+                </div>
+
+                <div class="action-row">
+                    <button type="button" id="btnRun" class="btn btn-accent">
+                        <span class="btn-text">Pandas 분석 실행</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 계산 결과 및 차트 영역 -->
+            <div id="runResultContainer" class="result-box hidden">
+                <div class="metadata-strip">
+                    <div class="meta-item">
+                        <span class="meta-label">기준 시점:</span>
+                        <strong id="metaRefPeriod">-</strong>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">사용한 행 수:</span>
+                        <strong id="metaUsedRows">-</strong>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">제외된 행 수:</span>
+                        <strong id="metaExcludedRows" class="text-danger">-</strong>
+                    </div>
+                    <div class="meta-item">
+                        <span class="meta-label">제외 사유:</span>
+                        <span id="metaExcludedReason">-</span>
+                    </div>
+                </div>
+
+                <!-- 차트 렌더 영역 -->
+                <div class="chart-container" id="chartWrapper">
+                    <canvas id="insightChart"></canvas>
+                </div>
+
+                <!-- 계산 수치 요약 테이블 -->
+                <div class="calc-table-wrap">
+                    <h4>🔢 세부 계산 수치 표</h4>
+                    <div class="table-responsive">
+                        <table id="calcDataTable" class="data-table">
+                            <thead><tr id="calcTableHead"></tr></thead>
+                            <tbody id="calcTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Step 4: Gemini 보고서 해석 -->
+        <section class="step-card disabled-card" id="sectionStep4">
+            <div class="step-header">
+                <span class="step-number">Step 4</span>
+                <h2>AI 인사이트 해석 보고서 (/explain)</h2>
+            </div>
+            <p class="step-desc">모드 A와 모드 B를 전환하며 Pandas 계산 수치 기반의 엄격한 해석과 자유 추정의 차이를 비교 체험해 보세요.</p>
+
+            <div class="mode-selector">
+                <label class="mode-card active" id="modeCardB">
+                    <input type="radio" name="explainMode" value="B" checked>
+                    <div class="mode-info">
+                        <strong>모드 B (정식 보고서 - 추천)</strong>
+                        <p>Pandas 계산 수치만 전달하여 8대 규칙(직접 계산 금지, 제외 행수 명시)을 지켜 7개 섹션으로 객관적 작성</p>
+                    </div>
+                </label>
+                <label class="mode-card" id="modeCardA">
+                    <input type="radio" name="explainMode" value="A">
+                    <div class="mode-info">
+                        <strong>모드 A (비교 체험용 - 의도적 허술함)</strong>
+                        <p>계산 결과 없이 진단 정보만 주고 AI가 자유롭게 추정하여 보고서 작성 (할루시네이션 비교용)</p>
+                    </div>
+                </label>
+            </div>
+
+            <div class="action-row">
+                <button type="button" id="btnExplain" class="btn btn-success">
+                    <span class="btn-text">AI 해석 보고서 생성</span>
+                </button>
+            </div>
+
+            <!-- 보고서 출력 영역 -->
+            <div id="explainResultContainer" class="result-box hidden">
+                <div class="report-header">
+                    <h3 id="reportTitle">📄 AI 분석 보고서</h3>
+                    <span id="reportModeBadge" class="badge badge-primary">모드 B</span>
+                </div>
+                <div id="reportContent" class="markdown-body"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <p>AI Data Insight Builder • Built with Flask, Pandas, Vanilla JS, Chart.js & Gemini API</p>
+    </footer>
+
+    <!-- 순수 바닐라 자바스크립트 -->
+    <script src="/static/app.js"></script>
+</body>
+</html>

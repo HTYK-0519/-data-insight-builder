@@ -1,0 +1,666 @@
+/* ==========================================================================
+   AI Data Insight Builder - Pure CSS Stylesheet
+   Frameworks (Bootstrap, Tailwind 등) 일절 배제한 순수 반응형 CSS
+   ========================================================================== */
+
+:root {
+    --primary-color: #2563eb;
+    --primary-hover: #1d4ed8;
+    --primary-light: #eff6ff;
+    --accent-color: #0d9488;
+    --accent-hover: #0f766e;
+    --success-color: #16a34a;
+    --warning-color: #d97706;
+    --warning-bg: #fffbeb;
+    --danger-color: #dc2626;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+    --bg-page: #f8fafc;
+    --bg-card: #ffffff;
+    --border-color: #e2e8f0;
+    --border-hover: #cbd5e1;
+    --radius-sm: 6px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.08);
+    --transition: all 0.2s ease-in-out;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+    background-color: var(--bg-page);
+    color: var(--text-main);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --------------------------------------------------------------------------
+   Header & Notice
+   -------------------------------------------------------------------------- */
+.app-header {
+    background: #0f172a;
+    color: #ffffff;
+    padding: 1.5rem 2rem 0.8rem;
+    box-shadow: var(--shadow-md);
+}
+
+.header-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.brand h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: #f8fafc;
+}
+
+.subtitle {
+    font-size: 0.9rem;
+    color: #94a3b8;
+    margin-top: 0.25rem;
+}
+
+.header-badges {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.badge {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    letter-spacing: 0.3px;
+}
+
+.badge-info {
+    background: #1e293b;
+    color: #38bdf8;
+    border: 1px solid #334155;
+}
+
+.badge-model {
+    background: #312e81;
+    color: #a5b4fc;
+    border: 1px solid #4338ca;
+}
+
+.badge-success {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.badge-primary {
+    background: var(--primary-light);
+    color: var(--primary-color);
+}
+
+.notice-banner {
+    max-width: 1200px;
+    margin: 1rem auto 0;
+    padding: 0.6rem 1rem;
+    background: rgba(255, 255, 255, 0.08);
+    border-left: 3px solid #38bdf8;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    color: #cbd5e1;
+}
+
+/* --------------------------------------------------------------------------
+   Main Layout & Step Cards
+   -------------------------------------------------------------------------- */
+.main-content {
+    max-width: 1200px;
+    width: 100%;
+    margin: 2rem auto;
+    padding: 0 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    flex: 1;
+}
+
+.step-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: 1.8rem;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+}
+
+.step-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.disabled-card {
+    opacity: 0.55;
+    pointer-events: none;
+    filter: grayscale(20%);
+}
+
+.step-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.step-number {
+    background: var(--primary-light);
+    color: var(--primary-color);
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+}
+
+.step-header h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.step-desc {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-bottom: 1.3rem;
+}
+
+/* --------------------------------------------------------------------------
+   Buttons & Controls
+   -------------------------------------------------------------------------- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.4rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    border: none;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-primary {
+    background: var(--primary-color);
+    color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--primary-hover);
+}
+
+.btn-accent {
+    background: var(--accent-color);
+    color: #ffffff;
+}
+
+.btn-accent:hover:not(:disabled) {
+    background: var(--accent-hover);
+}
+
+.btn-success {
+    background: var(--success-color);
+    color: #ffffff;
+}
+
+.btn-success:hover:not(:disabled) {
+    background: #15803d;
+}
+
+.btn:disabled {
+    background: #cbd5e1;
+    color: #64748b;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.action-row {
+    margin-top: 1.2rem;
+    display: flex;
+    gap: 0.8rem;
+    align-items: center;
+}
+
+/* --------------------------------------------------------------------------
+   Step 1: Upload Dropzone & Results
+   -------------------------------------------------------------------------- */
+.upload-area {
+    position: relative;
+    border: 2px dashed #93c5fd;
+    background: #f8fafc;
+    border-radius: var(--radius-md);
+    padding: 2.2rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.upload-area:hover, .upload-area.dragover {
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+}
+
+.file-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.upload-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.upload-prompt p {
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 0.25rem;
+}
+
+.upload-limit {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.result-box {
+    margin-top: 1.5rem;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.4rem;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+}
+
+.info-card {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 0.85rem 1rem;
+    display: flex;
+    flex-direction: column;
+}
+
+.info-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+}
+
+.info-value {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.highlight-value {
+    color: var(--primary-color);
+}
+
+.warnings-box {
+    background: var(--warning-bg);
+    border: 1px solid #fde68a;
+    border-left: 4px solid var(--warning-color);
+    border-radius: var(--radius-sm);
+    padding: 0.9rem 1.1rem;
+    margin-bottom: 1.2rem;
+}
+
+.warnings-box h4 {
+    font-size: 0.92rem;
+    color: #92400e;
+    margin-bottom: 0.5rem;
+}
+
+.warnings-box ul {
+    margin-left: 1.2rem;
+    font-size: 0.87rem;
+    color: #78350f;
+}
+
+.preview-details summary {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    cursor: pointer;
+    margin-bottom: 0.75rem;
+    user-select: none;
+}
+
+.table-responsive {
+    overflow-x: auto;
+    max-height: 380px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.84rem;
+    white-space: nowrap;
+}
+
+.data-table th, .data-table td {
+    padding: 0.6rem 0.9rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.data-table th {
+    background: #f1f5f9;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.data-table tr:hover {
+    background: #f8fafc;
+}
+
+/* --------------------------------------------------------------------------
+   Step 2: AI Suggestions Grid
+   -------------------------------------------------------------------------- */
+.suggestions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.2rem;
+    margin-top: 1.2rem;
+}
+
+.suggestion-card {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: var(--radius-md);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: var(--transition);
+}
+
+.suggestion-card:hover {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.sugg-tool-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 0.4rem;
+}
+
+.sugg-why {
+    font-size: 0.88rem;
+    color: var(--text-main);
+    margin-bottom: 0.8rem;
+    flex-grow: 1;
+}
+
+.sugg-caution {
+    font-size: 0.8rem;
+    color: #b45309;
+    background: #fffbeb;
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1rem;
+}
+
+.sugg-btn-select {
+    width: 100%;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+}
+
+/* --------------------------------------------------------------------------
+   Step 3: Run Configuration & Chart
+   -------------------------------------------------------------------------- */
+.run-config-box {
+    background: #f8fafc;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.2rem;
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    align-items: flex-end;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 0.35rem;
+}
+
+.form-control {
+    width: 100%;
+    padding: 0.55rem 0.8rem;
+    font-size: 0.88rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: #ffffff;
+    color: var(--text-main);
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    height: 38px;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin: 0;
+}
+
+.metadata-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    background: #f1f5f9;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    margin-bottom: 1.2rem;
+}
+
+.meta-label {
+    color: var(--text-muted);
+    margin-right: 0.3rem;
+}
+
+.text-danger {
+    color: var(--danger-color);
+}
+
+.chart-container {
+    position: relative;
+    width: 100%;
+    min-height: 350px;
+    max-height: 480px;
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.2rem;
+    margin-bottom: 1.4rem;
+}
+
+.calc-table-wrap h4 {
+    font-size: 0.92rem;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
+}
+
+/* --------------------------------------------------------------------------
+   Step 4: Report Mode & Markdown
+   -------------------------------------------------------------------------- */
+.mode-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+}
+
+.mode-card {
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    display: flex;
+    gap: 0.8rem;
+    cursor: pointer;
+    transition: var(--transition);
+    background: #ffffff;
+}
+
+.mode-card.active {
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+}
+
+.mode-info strong {
+    font-size: 0.95rem;
+    color: var(--text-main);
+}
+
+.mode-info p {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.2rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.markdown-body {
+    font-size: 0.95rem;
+    line-height: 1.75;
+    color: var(--text-main);
+}
+
+.markdown-body h2 {
+    font-size: 1.15rem;
+    margin-top: 1.4rem;
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--border-color);
+    color: #0f172a;
+}
+
+.markdown-body p {
+    margin-bottom: 0.8rem;
+}
+
+.markdown-body ul, .markdown-body ol {
+    margin-left: 1.4rem;
+    margin-bottom: 0.8rem;
+}
+
+.markdown-body li {
+    margin-bottom: 0.25rem;
+}
+
+.markdown-body strong {
+    color: #0f172a;
+}
+
+/* --------------------------------------------------------------------------
+   Footer
+   -------------------------------------------------------------------------- */
+.app-footer {
+    background: #ffffff;
+    border-top: 1px solid var(--border-color);
+    padding: 1.2rem;
+    text-align: center;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    margin-top: auto;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+    .header-container {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .config-grid {
+        grid-template-columns: 1fr;
+    }
+    .mode-selector {
+        grid-template-columns: 1fr;
+    }
+}
