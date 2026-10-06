@@ -165,12 +165,7 @@ def diagnose_dataframe(df: pd.DataFrame, filename: str, file_size: int, encoding
             recommended_year = sorted_years[0]
 
     # 5. 집계 행 후보 탐지
-    agg_keywords = [
-        "world", "oecd", "euro area", "european union", "high income", "low income", 
-        "middle income", "upper middle income", "lower middle income", "income", "area", 
-        "total", "latin america", "sub-saharan", "asia", "arab world", "caribbean",
-        "ida & ibrd", "dividend"
-    ]
+    agg_keywords = tools.AGGREGATE_KEYWORDS
     aggregate_row_candidates = []
     target_text_col = string_cols[0] if string_cols else (columns[0] if columns else None)
     if target_text_col:

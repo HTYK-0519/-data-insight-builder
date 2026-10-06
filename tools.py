@@ -251,6 +251,8 @@ def detect_aggregates(df: pd.DataFrame, label_column: str = None, **kwargs):
             
     total_rows = len(df)
     agg_count = len(agg_candidates)
+    normal_count = total_rows - agg_count
+    agg_ratio = round((agg_count / total_rows) * 100, 2) if total_rows > 0 else 0.0
     
     return sanitize_value({
         "tool": "detect_aggregates",
@@ -264,8 +266,18 @@ def detect_aggregates(df: pd.DataFrame, label_column: str = None, **kwargs):
         "result": {
             "target_column": target_col,
             "detected_count": agg_count,
-            "aggregate_ratio_percent": round((agg_count / total_rows) * 100, 2) if total_rows > 0 else 0.0,
+            "aggregate_ratio_percent": agg_ratio,
             "aggregate_rows": agg_candidates
+        },
+        "chart_data": {
+            "type": "bar",
+            "labels": ["개별 국가 및 지역", "집계 행 (World/OECD 등)"],
+            "datasets": [
+                {
+                    "label": f"행 수 (집계 행 비율: {agg_ratio}%)",
+                    "data": [normal_count, agg_count]
+                }
+            ]
         }
     })
 
