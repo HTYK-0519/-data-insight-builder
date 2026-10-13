@@ -34,6 +34,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initUploadEvents();
     initButtonHandlers();
     initModeSelector();
+    initQaEvents();
 });
 
 // -------------------------------------------------------------
@@ -774,3 +775,190 @@ function getChartBorderColors(index, total) {
     ];
     return palette[index % palette.length];
 }
+
+// -------------------------------------------------------------
+// 8. 후속 질문 Q&A 대화창 이벤트 (연속 대화 & 인라인 차트)
+// -------------------------------------------------------------
+let qaChatHistory = [];
+
+function initQaEvents() {
+    const inputQuestion = document.getElementById("inputQaQuestion");
+    const btnSendQa = document.getElementById("btnSendQa");
+    const qaChatList = document.getElementById("qaChatList");
+    const btnClearQa = document.getElementById("btnClearQa");
+    const quickTags = document.querySelectorAll(".qa-tag");
+
+    if (!inputQuestion || !btnSendQa || !qaChatList) return;
+
+    function appendMessage(role, htmlContent) {
+        const msgDiv = document.createElement("div");
+        msgDiv.className = `qa-msg qa-msg-${role}`;
+        
+        const bubble = document.createElement("div");
+        bubble.className = "qa-bubble";
+        bubble.innerHTML = htmlContent;
+        
+        msgDiv.appendChild(bubble);
+        qaChatList.appendChild(msgDiv);
+        qaChatList.scrollTop = qaChatList.scrollHeight;
+        return bubble;
+    }
+
+    function renderQaInlineChart(canvasId, chart) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+
+        const ctx = canvas.getContext("2d");
+        const chartType = chart.type || "line";
+
+        new Chart(ctx, {
+            type: chartType,
+            data: {
+                labels: chart.labels || [],
+                datasets: (chart.datasets || []).map((ds, idx) => ({
+                    label: ds.label || "지표",
+                    data: ds.data || [],
+                    borderColor: chartType === "line" ? "rgba(37, 99, 235, 1)" : undefined,
+                    backgroundColor: chartType === "line" ? "rgba(37, 99, 235, 0.15)" : "rgba(37, 99, 235, 0.75)",
+                    borderWidth: 2,
+                    tension: 0.25,
+                    fill: chartType === "line",
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { color: "rgba(226, 232, 240, 0.6)" } },
+                    y: { 
+                        grid: { color: "rgba(226, 232, 240, 0.6)" },
+                        // 순위 그래프인 경우 1위가 위에 오도록 역순(reverse) 고려 가능하나 기본 오름차순 유지
+                        beginAtZero: chartType === "bar"
+                    }
+                },
+                plugins: {
+                    legend: { position: "top" }
+                }
+            }
+        });
+
+        console.log(`[CHART] 대화형 인라인 차트 렌더 완료 (차트 종류: ${chartType})`);
+    }
+
+    async function submitQuestion() {
+        const question = inputQuestion.value.trim();
+        if (!question) {
+            alert("질문 내용을 입력해 주세요.");
+            inputQuestion.focus();
+            return;
+        }
+
+        // 사용자 말풍선 추가
+        appendMessage("user", question.replace(/</g, "&lt;").replace(/>/g, "&gt;"));
+        inputQuestion.value = "";
+
+        // 로딩 말풍선 추가
+        const loadingBubble = appendMessage("ai", '<span class="qa-loading">AI가 데이터를 분석하여 답변을 정리하고 있습니다... ⏳</span>');
+        const loadingMsgElem = loadingBubble.parentElement;
+
+        setLoading(btnSendQa, true, "답변 중...");
+        console.log(`[ASK] 대화 전송 (히스토리: ${qaChatHistory.length}턴): "${question}"`);
+
+        try {
+            const res = await fetch("/ask", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    question: question,
+                    history: qaChatHistory
+                })
+            });
+
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.error || "답변 생성 중 오류가 발생했습니다.");
+            }
+
+            // 로딩 말풍선 제거
+            if (loadingMsgElem && loadingMsgElem.parentElement) {
+                loadingMsgElem.remove();
+            }
+
+            // AI 답변 말풍선 추가
+            const aiBubble = appendMessage("ai", parseMarkdownToHtml(data.answer));
+
+            // 대화 히스토리 누적
+            qaChatHistory.push({ role: "user", content: question });
+            qaChatHistory.push({ role: "model", content: data.answer });
+
+            console.log(`[ASK] 답변 수신 완료 (차트 포함 여부: ${Boolean(data.chart)})`);
+
+            // 그래프가 포함된 경우 인라인 차트 생성
+            if (data.chart && data.chart.labels && data.chart.datasets) {
+                const chartId = "inlineChart_" + Date.now();
+                const chartWrap = document.createElement("div");
+                chartWrap.className = "qa-inline-chart-wrap";
+                chartWrap.innerHTML = `
+                    <div class="qa-chart-header">
+                        <strong>📊 ${data.chart.title || '분석 시각화 그래프'}</strong>
+                    </div>
+                    <div class="qa-chart-canvas-box">
+                        <canvas id="${chartId}"></canvas>
+                    </div>
+                `;
+                aiBubble.appendChild(chartWrap);
+                qaChatList.scrollTop = qaChatList.scrollHeight;
+
+                // Chart.js 렌더링
+                renderQaInlineChart(chartId, data.chart);
+            }
+
+            qaChatList.scrollTop = qaChatList.scrollHeight;
+
+        } catch (err) {
+            console.error("[ERROR] Q&A 요청 실패:", err);
+            if (loadingMsgElem && loadingMsgElem.parentElement) {
+                loadingMsgElem.remove();
+            }
+            appendMessage("ai", `<span class="text-danger">오류 발생: ${err.message}</span>`);
+        } finally {
+            setLoading(btnSendQa, false, "전송");
+        }
+    }
+
+    btnSendQa.addEventListener("click", submitQuestion);
+
+    inputQuestion.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            submitQuestion();
+        }
+    });
+
+    if (btnClearQa) {
+        btnClearQa.addEventListener("click", () => {
+            qaChatHistory = [];
+            qaChatList.innerHTML = `
+                <div class="qa-msg qa-msg-ai">
+                    <div class="qa-bubble">
+                        대화 기록이 초기화되었습니다. 새로운 질문을 입력해 주세요! 😊
+                    </div>
+                </div>
+            `;
+            console.log("[ASK] 대화 기록 초기화 완료");
+        });
+    }
+
+    quickTags.forEach(tag => {
+        tag.addEventListener("click", () => {
+            const q = tag.getAttribute("data-q");
+            if (q) {
+                inputQuestion.value = q;
+                submitQuestion();
+            }
+        });
+    });
+}
+

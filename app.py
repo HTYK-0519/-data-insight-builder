@@ -640,6 +640,166 @@ Python(Pandas)이 실제로 계산한 정밀 분석 결과가 아래에 주어�
         logger.error("[ERROR] explain API 호출 중 예외: %s\n%s", str(e), traceback.format_exc())
         return jsonify({"error": f"AI 해석 생성 중 오류가 발생했습니다: {str(e)}"}), 500
 
+@app.route("/ask", methods=["POST"])
+def ask_question():
+    """
+    POST /ask
+    사용자의 자연어 후속 질문에 대해 직관적인 결론 중심 답변과 함께
+    그래프 요청 시 인터랙티브 차트 데이터(JSON)를 함께 반환합니다. (멀티턴 대화 지원)
+    """
+    logger.info("[REQUEST] POST /ask")
+
+    if "df" not in CURRENT_DATASET:
+        logger.warning("[ERROR] 데이터셋 미로드 상태에서 ask 요청")
+        return jsonify({"error": "분석할 데이터셋이 없습니다. 먼저 CSV 파일을 업로드해 주세요."}), 400
+
+    data = request.get_json(silent=True) or {}
+    question = data.get("question", "").strip()
+    history = data.get("history", [])
+
+    if not question:
+        logger.warning("[ERROR] 질문 내용 누락")
+        return jsonify({"error": "질문 내용을 입력해 주세요."}), 400
+
+    logger.info("[AI] 후속 질문 처리 시작: '%s' (대화 히스토리: %d개)", question[:50], len(history))
+
+    df = CURRENT_DATASET["df"]
+    diagnosis = CURRENT_DATASET.get("diagnosis", {})
+    last_run_result = CURRENT_DATASET.get("last_run_result")
+
+    # 관련 데이터 검색 보강 (질문에 언급된 특정 국가/항목이 있을 경우 해당 데이터 추출)
+    extra_context = []
+    
+    if last_run_result:
+        extra_context.append(f"[직전 Pandas 계산 도구: {last_run_result.get('tool')}]\n{json.dumps(last_run_result.get('result', {}), ensure_ascii=False, indent=2)}")
+
+    try:
+        label_col = None
+        for col in df.columns:
+            if not pd.api.types.is_numeric_dtype(df[col]):
+                label_col = col
+                break
+        if label_col:
+            alias_map = {
+                "한국": "korea", "대한민국": "korea", "남한": "korea",
+                "미국": "united states", "일본": "japan", "중국": "china",
+                "영국": "united kingdom", "독일": "germany", "프랑스": "france"
+            }
+            search_terms = []
+            for k, v in alias_map.items():
+                if k in question.lower():
+                    search_terms.append(v)
+            for token in question.split():
+                if len(token) >= 2:
+                    search_terms.append(token.lower())
+
+            matched_mask = pd.Series(False, index=df.index)
+            for term in search_terms:
+                matched_mask |= df[label_col].astype(str).str.lower().str.contains(re.escape(term), na=False)
+
+            matched_df = df[matched_mask].head(5)
+            if not matched_df.empty:
+                year_cols = [c for c in df.columns if re.match(r"^(19|20)\d{2}$", str(c).strip())]
+                sorted_years = sorted(year_cols)
+                cols_to_pick = [label_col] + sorted_years[-15:] if len(sorted_years) > 15 else [label_col] + sorted_years
+                valid_cols = [c for c in cols_to_pick if c in matched_df.columns]
+                extra_context.append(f"[질문 관련 국가/항목 연도별 지표값]\n{matched_df[valid_cols].to_string(index=False)}")
+
+                # 연도별 순위 및 변동 계산 보강
+                clean_df, _, _ = tools.filter_aggregates_helper(df, True, label_col)
+                target_row_label = "Korea, Rep." if "Korea, Rep." in matched_df[label_col].values else matched_df.iloc[0][label_col]
+                target_series = clean_df[clean_df[label_col] == target_row_label]
+                if not target_series.empty:
+                    yearly_ranks = []
+                    check_years = sorted_years[-12:] if sorted_years else []
+                    for y in check_years:
+                        y_s = pd.to_numeric(clean_df[y], errors="coerce").dropna()
+                        t_val = pd.to_numeric(target_series[y].values[0], errors="coerce")
+                        if pd.notna(t_val) and len(y_s) > 0:
+                            r = int((y_s > t_val).sum() + 1)
+                            yearly_ranks.append(f"- {y}년: 지표값 {round(float(t_val), 2)}, 순위 {r}위 (전체 {len(y_s)}개국 중)")
+                    if yearly_ranks:
+                        extra_context.append(f"[{target_row_label} 연도별 정확한 수치 및 순위]\n" + "\n".join(yearly_ranks))
+    except Exception as search_err:
+        logger.debug("질문 관련 데이터 검색 중 예외 (무시됨): %s", search_err)
+
+    context_str = "\n\n".join(extra_context) if extra_context else "직전 계산 결과가 아직 없습니다."
+
+    history_str = ""
+    if history:
+        history_lines = []
+        for h in history[-6:]:
+            role_kr = "사용자" if h.get("role") in ["user", "human"] else "AI"
+            history_lines.append(f"{role_kr}: {h.get('content', '')}")
+        history_str = "[이전 대화 기록]\n" + "\n".join(history_lines) + "\n\n"
+
+    prompt_ask = f"""
+당신은 통계 초보자를 돕는 친절하고 유능한 'AI 데이터 인사이트 어시스턴트'입니다.
+사용자가 분석 결과나 데이터셋에 대해 후속 질문을 했습니다.
+
+{history_str}[현재 사용자 질문]
+"{question}"
+
+[데이터셋 및 계산 컨텍스트]
+- 데이터셋 파일명: {diagnosis.get('filename', '알 수 없음')}
+- 전체 규모: {diagnosis.get('rows', 0)}행 x {diagnosis.get('columns', 0)}열
+- 권장 기준연도: {diagnosis.get('recommended_year', '알 수 없음')}
+{context_str}
+
+[답변 작성 가이드라인]
+1. **첫 문장에 사용자가 가장 궁금해하는 핵심 결론/순위/숫자를 바로 명확하게 답하세요.**
+   - 통계를 잘 모르는 사람도 즉시 이해할 수 있도록 가장 중요한 결론부터 단도직입적으로 말하세요.
+2. **이유나 부가 설명은 2~3문장 이내로 쉽고 간결하게 덧붙이세요.**
+3. **그래프/차트/추이 요청 시 Chart.js용 chart 데이터를 생성하세요.**
+   - 사용자가 '그래프로 보여줘', '추이를 나타내줘', '차트로 그려줘', 또는 순위/비교 시각화를 요구한 경우, 반드시 `chart` 객체에 실제 수치를 담아 반환하세요.
+   - 선 그래프가 어울리는 연도별 시계열은 "line", 항목 비교는 "bar"를 사용하세요.
+   - 그래프가 전혀 불필요한 단순 질문일 경우 `chart`는 null로 설정하세요.
+
+[반환 형식: JSON 필수]
+반드시 다음 구조의 순수 JSON으로만 출력하세요:
+{{
+  "answer": "직관적이고 친절한 설명 텍스트 (마크다운 문법 사용 가능)",
+  "chart": {{
+    "type": "line" 또는 "bar",
+    "title": "차트 제목",
+    "labels": ["2015", "2016", "2017", ...],
+    "datasets": [
+      {{
+        "label": "한국 인터넷 사용률 순위 (위)",
+        "data": [17, 15, 13, 9, 10, 10]
+      }}
+    ]
+  }}
+}}
+"""
+
+    try:
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=prompt_ask,
+            config=types.GenerateContentConfig(
+                temperature=0.2,
+                response_mime_type="application/json"
+            )
+        )
+        raw_text = response.text.strip()
+        parsed = json.loads(raw_text)
+        answer_text = parsed.get("answer", raw_text)
+        chart_obj = parsed.get("chart")
+
+        logger.info("[AI] 후속 질문 답변 완료 (답변 길이: %d자, 차트 포함 여부: %s)", len(answer_text), bool(chart_obj))
+        logger.info("[RESPONSE] status=200 tool=ask has_chart=%s", bool(chart_obj))
+        return jsonify({
+            "question": question,
+            "answer": answer_text,
+            "chart": chart_obj
+        }), 200
+
+    except Exception as e:
+        logger.error("[ERROR] ask API 호출 중 예외: %s\n%s", str(e), traceback.format_exc())
+        return jsonify({"error": f"AI 답변 생성 중 오류가 발생했습니다: {str(e)}"}), 500
+
 if __name__ == "__main__":
     logger.info("[SERVER] Starting Data Insight Builder backend...")
     app.run(host="127.0.0.1", port=5000, debug=FLASK_DEBUG)

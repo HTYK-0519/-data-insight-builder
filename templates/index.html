@@ -186,6 +186,39 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- 후속 질문 Q&A 대화창 (연속 대화 & 인라인 차트 지원) -->
+                <div class="qa-container" id="qaContainer">
+                    <div class="qa-header">
+                        <div class="qa-title-row">
+                            <h4>💬 결과에 대해 AI와 계속 대화하기</h4>
+                            <button type="button" id="btnClearQa" class="btn-clear-chat" title="대화 기록 초기화">대화 지우기</button>
+                        </div>
+                        <p class="qa-desc">통계 수치가 복잡한가요? "한국 순위는 몇 등이야?", "한국의 2015년~2020년 순위를 그래프로 나타내줘" 처럼 편하게 대화를 이어가 보세요.</p>
+                    </div>
+
+                    <!-- 대화 메시지 목록 (스크롤형 채팅창) -->
+                    <div class="qa-chat-list" id="qaChatList">
+                        <div class="qa-msg qa-msg-ai">
+                            <div class="qa-bubble">
+                                분석 결과에 대해 궁금한 점을 질문해 보세요! 특정 국가의 순위나 연도별 변화 추이를 그래프로 그려달라고 요청하실 수도 있습니다. 😊
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="qa-quick-tags" id="qaQuickTags">
+                        <span class="qa-tag" data-q="한국의 지표 값과 순위는 전체에서 어떻게 돼?">🇰🇷 한국 순위는?</span>
+                        <span class="qa-tag" data-q="한국의 인터넷 사용률 순위를 2015년~2020년까지 그래프로 나타내줘">📈 한국 2015~2020 순위 그래프</span>
+                        <span class="qa-tag" data-q="이 지표에서 가장 높은 곳과 가장 낮은 곳은 어디야?">🏆 1위와 최하위는?</span>
+                    </div>
+
+                    <div class="qa-input-row">
+                        <input type="text" id="inputQaQuestion" class="form-control" placeholder="메시지를 입력하세요 (예: 한국의 2015년~2020년 순위를 그래프로 나타내줘)">
+                        <button type="button" id="btnSendQa" class="btn btn-primary">
+                            <span class="btn-text">전송</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </section>
 
