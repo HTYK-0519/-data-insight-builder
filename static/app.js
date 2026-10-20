@@ -26,9 +26,14 @@ const TOOL_DEFINITIONS = [
     { name: "reshape_wide_to_long", title: "연도 열을 행으로 접기 (Wide -> Long)", requiresRef: false }
 ];
 
+let deferredInstallPrompt = null;
+
 document.addEventListener("DOMContentLoaded", () => {
     console.log("[PAGE] 페이지 로드 완료");
     
+    initPwa();
+    initAuthHandlers();
+    checkAuthStatus();
     initToolSelectDropdown();
     checkServerHealth();
     initUploadEvents();
@@ -36,6 +41,204 @@ document.addEventListener("DOMContentLoaded", () => {
     initModeSelector();
     initQaEvents();
 });
+
+// -------------------------------------------------------------
+// 0-A. PWA 서비스 워커 및 앱 설치 처리
+// -------------------------------------------------------------
+function initPwa() {
+    // 1. 서비스 워커 등록
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("/sw.js")
+                .then((reg) => {
+                    console.log("[PWA] Service Worker 등록 성공 (스코프:", reg.scope, ")");
+                })
+                .catch((err) => {
+                    console.warn("[PWA] Service Worker 등록 실패:", err);
+                });
+        });
+    }
+
+    const btnInstall = document.getElementById("btnPwaInstall");
+
+    // 2. 브라우저의 PWA 설치 가능 이벤트 감지
+    window.addEventListener("beforeinstallprompt", (e) => {
+        console.log("[PWA] beforeinstallprompt 이벤트 발생 감지");
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        if (btnInstall) {
+            btnInstall.classList.remove("hidden");
+        }
+    });
+
+    // 3. 설치 버튼 클릭 시 설치 프롬프트 호출
+    if (btnInstall) {
+        btnInstall.addEventListener("click", async () => {
+            if (!deferredInstallPrompt) {
+                alert("이미 앱이 설치되어 있거나 현재 환경에서 바로 설치를 지원하지 않습니다.\n브라우저 오른쪽 상단 메뉴(⋮)에서 '홈 화면에 추가' 또는 '앱 설치'를 이용해 주세요.");
+                return;
+            }
+            deferredInstallPrompt.prompt();
+            const { outcome } = await deferredInstallPrompt.userChoice;
+            console.log("[PWA] 설치 프롬프트 결과:", outcome);
+            deferredInstallPrompt = null;
+            btnInstall.classList.add("hidden");
+        });
+    }
+
+    // 4. 앱 설치 완료 이벤트
+    window.addEventListener("appinstalled", () => {
+        console.log("[PWA] 앱 설치 완료");
+        deferredInstallPrompt = null;
+        if (btnInstall) btnInstall.classList.add("hidden");
+    });
+
+    // 5. 이미 독립 실행(Standalone PWA) 모드로 실행 중인 경우 설치 버튼 숨김
+    if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true) {
+        console.log("[PWA] Standalone 모드로 실행 중");
+        if (btnInstall) btnInstall.classList.add("hidden");
+    }
+}
+
+// -------------------------------------------------------------
+// 0-B. 사이트 접속 비밀번호 인증 및 보안 잠금 관리
+// -------------------------------------------------------------
+async function checkAuthStatus() {
+    const lockOverlay = document.getElementById("lockScreenOverlay");
+    const passwordInput = document.getElementById("inputSitePassword");
+    const errorMsg = document.getElementById("lockErrorMsg");
+
+    try {
+        const res = await fetch("/api/auth/status");
+        if (!res.ok) throw new Error("인증 상태 확인 실패");
+        const data = await res.json();
+
+        if (data.authenticated || !data.auth_required) {
+            if (lockOverlay) lockOverlay.classList.add("hidden");
+        } else {
+            if (lockOverlay) {
+                lockOverlay.classList.remove("hidden");
+                if (errorMsg) errorMsg.classList.add("hidden");
+                if (passwordInput) setTimeout(() => passwordInput.focus(), 250);
+            }
+        }
+    } catch (err) {
+        console.warn("[AUTH] 인증 상태 확인 중 통신 오류:", err);
+    }
+}
+
+function handleUnauthorized() {
+    const lockOverlay = document.getElementById("lockScreenOverlay");
+    const errorMsg = document.getElementById("lockErrorMsg");
+    const passwordInput = document.getElementById("inputSitePassword");
+
+    if (lockOverlay) {
+        lockOverlay.classList.remove("hidden");
+        if (errorMsg) {
+            errorMsg.textContent = "접근 권한이 만료되었거나 잠겨 있습니다. 비밀번호를 다시 입력해 주세요.";
+            errorMsg.classList.remove("hidden");
+        }
+        if (passwordInput) {
+            passwordInput.value = "";
+            setTimeout(() => passwordInput.focus(), 250);
+        }
+    }
+}
+
+function initAuthHandlers() {
+    const lockForm = document.getElementById("lockForm");
+    const passwordInput = document.getElementById("inputSitePassword");
+    const btnTogglePassword = document.getElementById("btnTogglePassword");
+    const btnUnlock = document.getElementById("btnUnlockSite");
+    const errorMsg = document.getElementById("lockErrorMsg");
+    const lockOverlay = document.getElementById("lockScreenOverlay");
+    const btnLockApp = document.getElementById("btnLockApp");
+
+    // 비밀번호 보기/숨기기 토글
+    if (btnTogglePassword && passwordInput) {
+        btnTogglePassword.addEventListener("click", () => {
+            const isPassword = passwordInput.type === "password";
+            passwordInput.type = isPassword ? "text" : "password";
+            btnTogglePassword.textContent = isPassword ? "🙈" : "👁️";
+        });
+    }
+
+    // 잠금 해제 폼 제출
+    async function submitUnlock() {
+        const pwd = passwordInput ? passwordInput.value.trim() : "";
+        if (!pwd) {
+            if (errorMsg) {
+                errorMsg.textContent = "접속 비밀번호를 입력해 주세요.";
+                errorMsg.classList.remove("hidden");
+            }
+            if (passwordInput) passwordInput.focus();
+            return;
+        }
+
+        if (btnUnlock) {
+            btnUnlock.disabled = true;
+            btnUnlock.innerHTML = '<span class="spinner"></span> 확인 중...';
+        }
+        if (errorMsg) errorMsg.classList.add("hidden");
+
+        try {
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ password: pwd })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success) {
+                if (lockOverlay) lockOverlay.classList.add("hidden");
+                if (passwordInput) passwordInput.value = "";
+                checkServerHealth();
+            } else {
+                if (errorMsg) {
+                    errorMsg.textContent = data.message || "비밀번호가 올바르지 않습니다.";
+                    errorMsg.classList.remove("hidden");
+                }
+                if (passwordInput) {
+                    passwordInput.select();
+                }
+            }
+        } catch (err) {
+            if (errorMsg) {
+                errorMsg.textContent = "서버 통신 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+                errorMsg.classList.remove("hidden");
+            }
+        } finally {
+            if (btnUnlock) {
+                btnUnlock.disabled = false;
+                btnUnlock.innerHTML = '<span class="btn-text">잠금 해제 및 접속</span>';
+            }
+        }
+    }
+
+    if (lockForm) {
+        lockForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            submitUnlock();
+        });
+    }
+
+    // 헤더 '잠금' 버튼 클릭 시 로그아웃 처리
+    if (btnLockApp) {
+        btnLockApp.addEventListener("click", async () => {
+            try {
+                await fetch("/api/auth/logout", { method: "POST" });
+            } catch (e) {
+                console.warn("[AUTH] 로그아웃 요청 실패:", e);
+            }
+            if (lockOverlay) lockOverlay.classList.remove("hidden");
+            if (passwordInput) {
+                passwordInput.value = "";
+                setTimeout(() => passwordInput.focus(), 250);
+            }
+            if (errorMsg) errorMsg.classList.add("hidden");
+        });
+    }
+}
 
 // -------------------------------------------------------------
 // 1. 초기화 및 서버 헬스체크
@@ -193,6 +396,11 @@ async function executeInspect() {
             body: formData
         });
 
+        if (res.status === 401) {
+            handleUnauthorized();
+            throw new Error("접근 권한이 없습니다. 사이트 비밀번호를 입력해 주세요.");
+        }
+
         const data = await res.json();
         if (!res.ok) {
             throw new Error(data.error || "데이터 진단에 실패했습니다.");
@@ -300,6 +508,11 @@ async function executeSuggest() {
             method: "POST",
             headers: { "Content-Type": "application/json" }
         });
+
+        if (res.status === 401) {
+            handleUnauthorized();
+            throw new Error("접근 권한이 없습니다. 사이트 비밀번호를 입력해 주세요.");
+        }
 
         const data = await res.json();
         if (!res.ok) {
@@ -439,6 +652,11 @@ async function executeRun() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
         });
+
+        if (res.status === 401) {
+            handleUnauthorized();
+            throw new Error("접근 권한이 없습니다. 사이트 비밀번호를 입력해 주세요.");
+        }
 
         const data = await res.json();
         if (!res.ok) {
@@ -673,6 +891,11 @@ async function executeExplain() {
             body: JSON.stringify(payload)
         });
 
+        if (res.status === 401) {
+            handleUnauthorized();
+            throw new Error("접근 권한이 없습니다. 사이트 비밀번호를 입력해 주세요.");
+        }
+
         const data = await res.json();
         if (!res.ok) {
             throw new Error(data.error || "AI 해석 보고서를 생성하지 못했습니다.");
@@ -875,6 +1098,14 @@ function initQaEvents() {
                     history: qaChatHistory
                 })
             });
+
+            if (res.status === 401) {
+                if (loadingMsgElem && loadingMsgElem.parentElement) {
+                    loadingMsgElem.remove();
+                }
+                handleUnauthorized();
+                throw new Error("접근 권한이 없습니다. 사이트 비밀번호를 입력해 주세요.");
+            }
 
             const data = await res.json();
             if (!res.ok) {

@@ -6,7 +6,9 @@ import json
 import math
 import logging
 import traceback
-from flask import Flask, jsonify, request, render_template
+import hmac
+from functools import wraps
+from flask import Flask, jsonify, request, render_template, session, send_from_directory
 import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
@@ -27,11 +29,17 @@ logger = logging.getLogger("DataInsightBuilder")
 
 app = Flask(__name__)
 
+# 세션 암호화 키 및 보안 쿠키 설정
+app.secret_key = os.getenv("SECRET_KEY", "data-insight-builder-secure-session-key-2026")
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
 # 환경변수 읽기 (절대 코드에 하드코딩하지 않음)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
 FLASK_DEBUG = os.getenv("FLASK_DEBUG", "false").lower() == "true"
 MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", 10))
+SITE_PASSWORD = os.getenv("SITE_PASSWORD", "1234").strip()
 
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_MB * 1024 * 1024
 
@@ -221,6 +229,64 @@ def diagnose_dataframe(df: pd.DataFrame, filename: str, file_size: int, encoding
                 len(warnings), len(aggregate_row_candidates), str(recommended_year))
     return diagnosis
 
+def auth_required(f):
+    """사이트 접속 비밀번호 인증 여부 확인 데코레이터"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        expected_pwd = os.getenv("SITE_PASSWORD", "1234").strip()
+        # 비밀번호가 비어있지 않고 세션 인증이 안 된 경우 차단
+        if expected_pwd and not session.get("authenticated", False):
+            logger.warning("[AUTH] 미인증 접근 차단 (경로: %s, IP: %s)", request.path, request.remote_addr)
+            return jsonify({
+                "error": "접근 권한이 없습니다. 사이트 비밀번호를 먼저 입력해 주세요.",
+                "auth_required": True
+            }), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
+@app.route("/manifest.json", methods=["GET"])
+def get_manifest():
+    """PWA 매니페스트 서빙"""
+    return send_from_directory("static", "manifest.json", mimetype="application/manifest+json")
+
+@app.route("/sw.js", methods=["GET"])
+def get_sw():
+    """PWA 서비스 워커 서빙 (루트 스코프 헤더 허용)"""
+    response = send_from_directory("static", "sw.js", mimetype="application/javascript")
+    response.headers["Service-Worker-Allowed"] = "/"
+    return response
+
+@app.route("/api/auth/login", methods=["POST"])
+def auth_login():
+    """사이트 접속 비밀번호 검증 및 세션 부여"""
+    data = request.get_json(silent=True) or {}
+    user_pwd = str(data.get("password", "")).strip()
+    expected_pwd = os.getenv("SITE_PASSWORD", "1234").strip()
+
+    if not expected_pwd or hmac.compare_digest(user_pwd, expected_pwd):
+        session["authenticated"] = True
+        logger.info("[AUTH] 비밀번호 인증 성공 (IP: %s)", request.remote_addr)
+        return jsonify({"success": True, "message": "인증에 성공했습니다."}), 200
+    else:
+        logger.warning("[AUTH] 비밀번호 불일치 시도 (IP: %s)", request.remote_addr)
+        return jsonify({"success": False, "message": "비밀번호가 올바르지 않습니다."}), 401
+
+@app.route("/api/auth/logout", methods=["POST"])
+def auth_logout():
+    """사이트 재잠금 (세션 파기)"""
+    session.pop("authenticated", None)
+    logger.info("[AUTH] 사용자 로그아웃 / 재잠금 완료 (IP: %s)", request.remote_addr)
+    return jsonify({"success": True, "message": "사이트가 다시 잠겼습니다."}), 200
+
+@app.route("/api/auth/status", methods=["GET"])
+def auth_status():
+    """현재 세션의 인증 상태 확인"""
+    is_auth = bool(session.get("authenticated", False))
+    return jsonify({
+        "authenticated": is_auth,
+        "auth_required": bool(os.getenv("SITE_PASSWORD", "1234").strip())
+    }), 200
+
 @app.route("/", methods=["GET"])
 def index():
     """index.html 반환"""
@@ -241,6 +307,7 @@ def health():
     return jsonify(response), 200
 
 @app.route("/inspect", methods=["POST"])
+@auth_required
 def inspect():
     """POST /inspect (CSV 업로드 및 13가지 정밀 진단)"""
     logger.info("[REQUEST] POST /inspect")
@@ -301,6 +368,7 @@ def inspect():
     return jsonify(diagnosis_result), 200
 
 @app.route("/suggest", methods=["POST"])
+@auth_required
 def suggest():
     """
     POST /suggest
@@ -444,6 +512,7 @@ def suggest():
         return jsonify({"error": f"AI 분석 제안 생성 중 오류가 발생했습니다: {str(e)}"}), 500
 
 @app.route("/run", methods=["POST"])
+@auth_required
 def run_tool():
     """
     POST /run
@@ -500,6 +569,7 @@ def run_tool():
         return jsonify({"error": f"도구 실행 중 오류가 발생했습니다: {str(e)}"}), 500
 
 @app.route("/explain", methods=["POST"])
+@auth_required
 def explain():
     """
     POST /explain
@@ -641,6 +711,7 @@ Python(Pandas)이 실제로 계산한 정밀 분석 결과가 아래에 주어�
         return jsonify({"error": f"AI 해석 생성 중 오류가 발생했습니다: {str(e)}"}), 500
 
 @app.route("/ask", methods=["POST"])
+@auth_required
 def ask_question():
     """
     POST /ask

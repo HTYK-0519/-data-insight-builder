@@ -2,14 +2,47 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="description" content="Pandas가 직접 계산하고 Gemini가 해석하는 신뢰 기반 교육용 데이터 분석기">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="DataInsight">
     <title>AI Data Insight Builder</title>
+    <!-- PWA Web App Manifest & Favicon -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
     <!-- 순수 CSS 스타일시트 -->
     <link rel="stylesheet" href="/static/style.css">
     <!-- Chart.js CDN (차트 시각화 전용) -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+    <!-- 사이트 접속 보안 잠금 화면 (오버레이) -->
+    <div id="lockScreenOverlay" class="lock-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="lockModalTitle">
+        <div class="lock-card">
+            <div class="lock-icon-wrap">
+                <span class="lock-icon" aria-hidden="true">🔐</span>
+            </div>
+            <h2 id="lockModalTitle">AI Data Insight Builder</h2>
+            <p class="lock-subtitle">비인가 접근 및 API 남용 방지를 위한 보안 잠금 상태입니다.<br>접속 비밀번호를 입력해 주세요.</p>
+            
+            <form id="lockForm" class="lock-form" onsubmit="return false;">
+                <div class="lock-input-group">
+                    <input type="password" id="inputSitePassword" class="form-control lock-input" placeholder="접속 비밀번호 입력" autocomplete="current-password" required>
+                    <button type="button" id="btnTogglePassword" class="btn-toggle-eye" title="비밀번호 표시 전환" aria-label="비밀번호 표시 전환">👁️</button>
+                </div>
+                <div id="lockErrorMsg" class="lock-error-msg hidden" role="alert"></div>
+                <button type="submit" id="btnUnlockSite" class="btn btn-primary btn-block btn-unlock">
+                    <span class="btn-text">잠금 해제 및 접속</span>
+                </button>
+            </form>
+            <p class="lock-hint">🔒 모든 분석 및 AI 호출은 서버 인증 세션으로 안전하게 보호됩니다.</p>
+        </div>
+    </div>
+
     <header class="app-header">
         <div class="header-container">
             <div class="brand">
@@ -19,6 +52,8 @@
             <div class="header-badges">
                 <span id="serverStatusBadge" class="badge badge-info">서버 상태 확인 중...</span>
                 <span id="modelBadge" class="badge badge-model">모델 로딩 중...</span>
+                <button type="button" id="btnPwaInstall" class="badge badge-btn badge-pwa-install hidden" title="홈 화면에 앱으로 설치">📲 앱 설치</button>
+                <button type="button" id="btnLockApp" class="badge badge-btn badge-lock" title="화면 잠금 / 로그아웃">🔒 잠금</button>
             </div>
         </div>
         <div class="notice-banner">
